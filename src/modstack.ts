@@ -237,29 +237,33 @@ const makeModstack = <A extends { readonly [Name: string]: ModState<unknown> }>(
   }) as const;
 
 const makeLifecycleDep = () => {
-  let lifecycle: Lifecycle | null = null;
+  let lifecyclePlaceholder: Lifecycle | null = null;
 
   return {
-    setLifecycle: (lc: Lifecycle) => {
-      lifecycle = lc;
+    setLifecycle(lifecycle: Lifecycle) {
+      lifecyclePlaceholder = lifecycle;
     },
     mod: {
       configure(_envVars: EnvVars) {
         return { ok: true, value: null } as const;
       },
       async initialize(_cfg: null) {
+        if (!lifecyclePlaceholder) {
+          throw new ModstackError(
+            'lifecycle_not_set',
+            'Lifecycle-dep module instantiated without lifecycle being set.',
+          );
+        }
+        const lifecycle = lifecyclePlaceholder;
+
         return {
           instance: {
-            // TODO: Expose functionality here!
             status() {
-              if (!lifecycle) {
-                throw new ModstackError(
-                  'lifecycle_not_set',
-                  'Lifecycle-dep module instantiated without lifecycle being set.',
-                );
-              }
               return lifecycle.status();
             },
+            async stop() {
+              return lifecycle.stop();
+            }
           },
         };
       },
