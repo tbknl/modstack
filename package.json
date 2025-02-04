@@ -1,0 +1,33 @@
+{
+  "name": "modstack",
+  "version": "0.0.0",
+  "description": "Register application modules and guide them through the runtime lifecycle.",
+  "author": "Dave van Soest",
+  "type": "module",
+  "main": "dist/modstack.js",
+  "types": "dist/modstack.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/modstack.d.ts",
+      "default": "./dist/modstack.js"
+    }
+  },
+  "scripts": {
+    "start": "node .",
+    "build": "tsc -p tsconfig.build.json",
+    "pretest": "tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=16"
+  },
+  "files": [
+    "dist/"
+  ],
+  "devDependencies": {
+    "@types/node": "20.12.12",
+    "typescript": "5.4.5",
+    "vitest": "2.0.5"
+  }
+}

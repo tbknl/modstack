@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "paths": {
+      "#@/*": ["./dist/*"],
+      "modstack": ["./dist/modstack.d.ts"]
+    }
+  },
+  "types": ["vitest/globals"]
+}
