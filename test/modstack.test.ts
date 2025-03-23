@@ -15,7 +15,6 @@ const makeLoggerMock = () => ({
 });
 
 const makeMod = () => ({
-	configure: (_envVars: EnvVars) => ({ ok: true as const, value: null }),
 	initialize: async (_cfg: null) => ({ instance: {} }),
 });
 
@@ -54,7 +53,6 @@ describe('mod stack builder', () => {
 	it('allows to define compatible dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const basicCalculatorMod = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: {
 					square: (x: number) => x * x,
@@ -64,7 +62,6 @@ describe('mod stack builder', () => {
 			}),
 		};
 		const advancedCalculatorMod = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null, { calculator }: {
 				calculator: { square(x: number): number; sum(a: number[]): number }
 			}) => ({
@@ -82,13 +79,11 @@ describe('mod stack builder', () => {
 	it('allows to define optional dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const modA = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a!' },
 			}),
 		};
 		const modB = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null, _deps: {
 				a?: { sayA(): string },
 			}) => ({ instance: {} }),
@@ -103,19 +98,16 @@ describe('mod stack builder', () => {
 	it('allows to define multiple dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const modA = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a!' },
 			}),
 		};
 		const modB = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayB: () => 'b!' },
 			}),
 		};
 		const modC = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null, _deps: {
 				a: { sayA(): string },
 				b: { sayB(): string },
@@ -129,22 +121,19 @@ describe('mod stack builder', () => {
 		expect(builder).toHaveProperty('complete', expect.any(Function));
 	});
 
-	it('allows to define an array of same-type dependencies for a module', () => {
+	it('allows to define a record of same-type dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const modA1 = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a1!' },
 			}),
 		};
 		const modA2 = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a2!' },
 			}),
 		};
 		const modB = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null, _multipleA: Record<string, { sayA(): string }>) => ({
 				instance: {}
 			}),
@@ -160,22 +149,20 @@ describe('mod stack builder', () => {
 	it('checks that dependencies are type-compatible', () => {
 		const logger = makeLoggerMock();
 		const modB = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayB: () => 'b!' },
 			}),
 		};
 		const modC = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null, _deps: {
 				a: { sayA(): string },
 			}) => ({ instance: {} }),
 		};
 		const builder = modstack({ logger })
 			.add('mod-b', modB, {})
-			// @ts-expect-error: mod-b is not type-compatible with mod-a.
+		// @ts-expect-error: mod-b is not type-compatible with mod-a.
 			.add('mod-c-1', modC, { a: 'mod-b' })
-			// @ts-expect-error: mod-d is not part of the stack.
+		// @ts-expect-error: mod-d is not part of the stack.
 			.add('mod-c-2', modC, { a: 'mod-d' });
 		expect(builder).toHaveProperty('complete', expect.any(Function));
 	});
@@ -183,19 +170,16 @@ describe('mod stack builder', () => {
 	it('checks that all non-optional dependencies are provided', () => {
 		const logger = makeLoggerMock();
 		const modA = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'b!' },
 			}),
 		};
 		const modB = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null) => ({
 				instance: { sayB: () => 'b!' },
 			}),
 		};
 		const modC = {
-			configure: () => ({ ok: true as const, value: null }),
 			initialize: async (_cfg: null, _deps: {
 				a1: { sayA(): string },
 				a2: { sayA(): string },
@@ -207,9 +191,9 @@ describe('mod stack builder', () => {
 			.add('mod-a', modA, {})
 			.add('mod-b', modB, {})
 			.add('mod-c', modC, { a1: 'mod-a', a2: 'mod-a', b: 'mod-b' })
-			// @ts-expect-error: dependency for 'a2' is not provided.
+		// @ts-expect-error: dependency for 'a2' is not provided.
 			.add('mod-c-error', modC, { a1: 'mod-a', b: 'mod-b' })
-			// @ts-expect-error: dependency for 'a2' is not provided.
+		// @ts-expect-error: dependency for 'a2' is not provided.
 			.add('mod-c-error-2', modC, { a1: 'mod-a', b: 'mod-b', bOpt: 'mod-b' });
 		expect(builder).toHaveProperty('complete', expect.any(Function));
 	});
@@ -225,6 +209,18 @@ describe('mod stack builder', () => {
 		expect(lifecycle).toHaveProperty('stop', expect.any(Function));
 		expect(lifecycle).toHaveProperty('status', expect.any(Function));
 	});
+
+	// Type-safety checks for configure:
+	modstack({ logger: makeLoggerMock() })
+	// @ts-expect-error: configure not defined (because first initialize parameter is not null)
+		.add('x1', { initialize: async () => ({ instance: {} }) } as const, {})
+	// @ts-expect-error: configure not defined (because first initialize parameter is not null)
+		.add('x2', { initialize: async (_cfg: string) => ({ instance: {} }) } as const, {})
+		.add('x3', {
+			// @ts-expect-error: configure return value type is not assignable to config parameter of initialize.
+			configure: (_envVars: EnvVars) => ({ ok: true, value: 123 } as const),
+			initialize: async (_cfg: string) => ({ instance: {} })
+		}, {})
 });
 
 describe('lifecycle', () => {
@@ -378,7 +374,6 @@ describe('lifecycle', () => {
 			let observedPhase = '';
 
 			const initPhaseCheckerMod = {
-				configure: (_envVars: EnvVars) => ({ ok: true, value: null } as const),
 				initialize: async (_cfg: null, { lifecycle }: { lifecycle: { status: () => { phase: string }}}) => {
 					observedPhase = lifecycle.status().phase;
 					return { instance: {} };
@@ -417,9 +412,8 @@ describe('lifecycle', () => {
 		it('switches to "starting_failed" phase on error during initialization', async () => {
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('failing-config', {
-					...makeMod(),
-					initialize(_cfg) { throw new Error('Init error!'); },
-				}, {})
+					initialize(_cfg: null) { throw new Error('Init error!'); },
+				} as const, {})
 				.complete();
 
 			lifecycle.configure({});
@@ -433,7 +427,6 @@ describe('lifecycle', () => {
 			const audit: { modName: string }[] = [];
 
 			const makeAuditInitMod = ({ modName }: { modName: string }) => ({
-				...makeMod(),
 				initialize: async (_cfg: null) => {
 					audit.push({ modName });
 					return { instance: {} };
@@ -462,7 +455,6 @@ describe('lifecycle', () => {
 			const audit: { modName: string }[] = [];
 
 			const makeAuditInitMod = ({ modName, fail }: { modName: string; fail?: true }) => ({
-				...makeMod(),
 				initialize: async (_cfg: null) => {
 					audit.push({ modName });
 					if (fail) {
@@ -492,35 +484,173 @@ describe('lifecycle', () => {
 
 		it('allows to use the instances of previously initialized mods as dependencies', async () => {
 			const logger = makeLoggerMock();
+			const events: string[] = [];
 			const lifecycle = modstack({ logger })
 				.add('mod-a', {
-					...makeMod(),
-					initialize: async () => ({ instance: { doA() {} } }),
-					// TODO: Audit
-				}, {})
+					initialize: async (_cfg: null) => ({ instance: { doA(event: string) { events.push(event); } } }),
+				} as const, {})
 				.add('mod-b', {
-					...makeMod(),
-					async initialize(_cfg: null, deps: { modA: { doA: () => void } }) {
-						deps.modA.doA();
-						return { instance: { doB() {} } };
+					async initialize(_cfg: null, deps: { modA: { doA: (event: string) => void } }) {
+						deps.modA.doA('on-init mod-b');
+						return { instance: {} };
 					}
-				}, { modA: 'mod-a' })
+				} as const, { modA: 'mod-a' })
 				.complete();
 
 			lifecycle.configure({});
-			// TODO!!!
+			const started = await lifecycle.start();
+			expect(started).toEqual(true);
+			expect(events).toEqual(['on-init mod-b']);
 		});
-
-		it('TODO: Only allows compatible deps', async () => {
-			// TODO
-		});
-
-		it('', async () => {
-			// TODO
-		});
-
 	});
 
-	// TODO: Stop
+	describe('stop', () => {
+		it('switches to "stopping" phase during finalization', async () => {
+			let observedPhase = '';
+
+			const stoppingPhaseCheckerMod = {
+				initialize: async (_cfg: null, { lifecycle }: { lifecycle: { status: () => { phase: string }}}) => {
+					return {
+						instance: {},
+						finalize: async () => { observedPhase = lifecycle.status().phase; },
+					};
+				},
+			};
+
+			const logger = makeLoggerMock();
+			const lifecycle = modstack({ logger })
+				.add('stopping-phase-checker', stoppingPhaseCheckerMod, { lifecycle: 'lifecycle' })
+				.complete();
+
+			lifecycle.configure({});
+			const started = await lifecycle.start();
+			expect(started).toEqual(true);
+			lifecycle.stop();
+			await lifecycle.stopped();
+
+			expect(observedPhase).toEqual('stopping');
+		});
+
+		it('does not allow to stop from a phase other than "ready" or "starting_failed"', async () => {
+			const lifecycle = makeStandardTestModstackBuilder().complete();
+			expect(() => lifecycle.stop()).toThrow(ModstackError);
+			expect(() => lifecycle.stop()).toThrow(expect.objectContaining({
+				code: 'phase.incorrect',
+			}));
+		});
+
+		it('allows to stop from phase "ready"', async () => {
+			const lifecycle = makeStandardTestModstackBuilder().complete();
+			lifecycle.configure({});
+			const started = await lifecycle.start();
+			expect(started).toEqual(true);
+			expect(() => lifecycle.stop()).not.toThrow();
+			await lifecycle.stopped();
+		});
+
+		it('allows to stop from phase "starting_failed"', async () => {
+			const lifecycle = makeStandardTestModstackBuilder()
+				.add('fail-to-start', {
+					async initialize(_cfg: null) { throw new Error('Failed to initialize!'); },
+				} as const, {})
+				.complete();
+			lifecycle.configure({});
+			const started = await lifecycle.start();
+			expect(started).toEqual(false);
+			expect(() => lifecycle.stop()).not.toThrow();
+			await lifecycle.stopped();
+		});
+
+		it('finalizes modules in reverse order', async () => {
+			const events: string[] = [];
+
+			const makeFinalizeMod = (modId: string) => ({
+				initialize: async (_cfg: null) => {
+					return {
+						instance: {},
+						finalize: async () => { events.push(`Finalizing ${modId}`); },
+					};
+				},
+			});
+
+			const logger = makeLoggerMock();
+			const lifecycle = modstack({ logger })
+				.add('mod-1', makeFinalizeMod('1'), {})
+				.add('mod-2', makeFinalizeMod('2'), {})
+				.add('mod-3', makeFinalizeMod('3'), {})
+				.complete();
+
+			lifecycle.configure({});
+			await lifecycle.start();
+			lifecycle.stop();
+			await lifecycle.stopped();
+
+			expect(events).toEqual([
+				'Finalizing 3',
+				'Finalizing 2',
+				'Finalizing 1',
+			]);
+		});
+
+		it.only('wait with module finalization until all its dependents are finalized', async () => {
+			const events: string[] = [];
+
+			const makeFinalizeMod = (modId: string, options?: { delay?: number }) => ({
+				initialize: async (_cfg: null) => {
+					return {
+						instance: {},
+						finalize: async () => {
+							if (options?.delay) {
+								events.push(`Delaying finalize ${modId}`);
+								await new Promise<void>((resolve) => setTimeout(resolve, options.delay));
+							}
+							events.push(`Finalizing ${modId}`);
+						},
+					};
+				},
+			});
+
+			const logger = makeLoggerMock();
+			const lifecycle = modstack({ logger })
+				.add('modX0', makeFinalizeMod('X0'), {})
+				.add('modX1', makeFinalizeMod('X1'), {})
+				.add('modA1', makeFinalizeMod('A1'), {})
+				.add('modA2', makeFinalizeMod('A2'), {})
+				.add('modA3', makeFinalizeMod('A3', { delay: 10 }), { modA2: 'modA2' })
+				.add('modB1', makeFinalizeMod('B1'), { modX1: 'modX1' })
+				.add('modB2', makeFinalizeMod('B2'), { modB1: 'modB1' })
+				.add('modB3', makeFinalizeMod('B3'), {})
+				.add('modB4', makeFinalizeMod('B4', { delay: 10 }), { modB3: 'modB3', modB1: 'modB1' })
+				.add('modC1', makeFinalizeMod('C1'), {})
+				.complete();
+
+			lifecycle.configure({});
+			await lifecycle.start();
+			lifecycle.stop();
+			await lifecycle.stopped();
+
+			expect(events).toEqual([
+				'Finalizing C1',
+				'Delaying finalize B4',
+				'Finalizing B2',
+				'Delaying finalize A3',
+				'Finalizing A1',
+				'Finalizing X0',
+				'Finalizing B4',
+				'Finalizing B3',
+				'Finalizing B1',
+				'Finalizing X1',
+				'Finalizing A3',
+				'Finalizing A2',
+			]);
+		});
+
+		// TODO: Ordered finalization option.
+		// TODO: Succeed finalization by (1) returning void (2) returning true;
+		// TODO: Fail finalization by (1) throwing error (2) returning false.
+		// TODO: Switches phase to 'stopped' after successful finalization.
+		// TODO: Switches phase to 'stopping_failed' after failing finalization.
+	});
+
 	// TODO: Status
 });
