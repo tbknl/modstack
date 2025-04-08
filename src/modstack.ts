@@ -1,6 +1,3 @@
-/* eslint-disable */
-// TODO: Fix lint errors later.
-
 type EnvVars = Record<string, string | undefined>;
 type FinalizeFn = () => Promise<boolean | void>;
 type StatusFn = () => Record<string, unknown>;
@@ -13,12 +10,17 @@ type ModOptions = {
 	readonly orderedFinalization?: boolean;
 };
 
+type ModState = 'added' |
+	'configuring' | 'configured' | 'configuration_failed' |
+	'initializing' | 'initialized' | 'initialization_failed' |
+	'awaiting_finalization' | 'finalizing' | 'finalized' | 'finalization_failed';
+
 type Mod<Cfg, Inst, Deps extends { readonly [name: string]: unknown }> = (Cfg extends null ? Partial<ModCfg<Cfg>> : ModCfg<Cfg>) & {
 	readonly initialize: (cfg: Cfg, deps: Deps) => Promise<{ instance: Inst; finalize?: FinalizeFn; status?: StatusFn }>;
 	readonly options?: ModOptions;
 };
 
-type ModState<Inst> = {
+type ModGuide<Inst> = {
 	readonly getName: () => string;
 	readonly getOptions: () => ModOptions;
 	readonly configure: (
@@ -28,14 +30,14 @@ type ModState<Inst> = {
 	readonly getInstance: (dependent: { finalized: () => Promise<void> }) => Inst;
 	readonly finalize: () => Promise<boolean>;
 	readonly finalized: () => Promise<void>;
-	readonly status: () => Record<string, unknown>;
+	readonly status: () => { state: ModState; status: unknown };
 };
 
 type ModParams<M> = M extends Mod<infer C, infer I, infer D> ? { C: C; I: I; D: D } : never;
-type ModStateParams<M> = M extends ModState<infer I> ? { I: I } : never;
+type ModStateParams<M> = M extends ModGuide<infer I> ? { I: I } : never;
 
 // Check which module instance types are compatible with the dependency type:
-export type CompatMods<Dep, A extends { readonly [name: string]: ModState<unknown> }> = {
+export type CompatMods<Dep, A extends { readonly [name: string]: ModGuide<unknown> }> = {
 	[N in keyof A]: ModStateParams<A[N]>['I'] extends Dep ? N : never;
 }[keyof A];
 
@@ -54,11 +56,10 @@ type Phase =
 
 // Error to be thrown in case modstack is incorrectly used, e.g. when trying to make an incorrect phase transition.
 export class ModstackError extends Error {
-	constructor(
-		public readonly code: string,
-		msg: string,
-	) {
+	public readonly code: string;
+	constructor(code: string, msg: string) {
 		super(msg);
+		this.code = code;
 	}
 }
 
@@ -79,13 +80,14 @@ const makeModState = <Cfg, Inst, Deps extends { readonly [Name: string]: unknown
 	name: string,
 	mod: Mod<Cfg, Inst, Deps>,
 	depMap: { [K in keyof Deps]: { getInstance: (dependent: { finalized: () => Promise<void> }) => Deps[K]; finalize: FinalizeFn } },
-): ModState<Inst> => {
+): ModGuide<Inst> => {
 	let cfg: ModParams<typeof mod>['C'] | undefined = undefined; // TODO: Make this work when mod.configure is not defined.
 	let inst: Inst | undefined = undefined;
 	const dependents: { finalized: () => Promise<void> }[] = [];
 	let finalize: FinalizeFn | undefined = undefined;
 	let finalizationPromise: Promise<boolean> | undefined = undefined;
 	let status: StatusFn | undefined = undefined;
+	let state: ModState = 'added';
 
 	const finalized = () => {
 		if (!finalizationPromise) {
@@ -105,22 +107,28 @@ const makeModState = <Cfg, Inst, Deps extends { readonly [Name: string]: unknown
 			if (!mod.configure) {
 				// NOTE: When configure does not exist `Cfg` must be `null`.
 				cfg = null!; // TODO: Ensure type-safety?
-				return { ok: true };
 			}
-			try {
-				const cfgResult = mod.configure(envVars);
-				if (cfgResult.ok) {
-					cfg = cfgResult.value;
-				} else {
-					return { ok: false, failure: cfgResult.failure } as const;
+			else {
+				try {
+					state = 'configuring';
+					const cfgResult = mod.configure(envVars);
+					if (cfgResult.ok) {
+						cfg = cfgResult.value;
+					} else {
+						state = 'configuration_failed';
+						return { ok: false, failure: cfgResult.failure } as const;
+					}
+				} catch (err: unknown) {
+					state = 'configuration_failed';
+					return { ok: false, failure: [`${err}`] } as const;
 				}
-			} catch (err: unknown) {
-				return { ok: false, failure: [`${err}`] } as const;
 			}
+			state = 'configured';
 			return { ok: true } as const;
 		},
 		async initialize() {
 			if (cfg !== undefined) {
+				state = 'initializing';
 				logger.info(`[${name}] Initializing module.`);
 				const selectedDeps = Object.fromEntries(
 					Object.keys(depMap).map((key) => [key, depMap[key].getInstance({ finalized })]),
@@ -130,8 +138,10 @@ const makeModState = <Cfg, Inst, Deps extends { readonly [Name: string]: unknown
 					inst = initResult.instance;
 					finalize = initResult.finalize;
 					status = initResult.status;
+					state = 'initialized';
 					logger.info(`[${name}] Initialization successful.`);
 				} catch (err: unknown) {
+					state = 'initialization_failed';
 					logger.error(`[${name}] Initialization failed.`);
 				}
 			}
@@ -151,11 +161,14 @@ const makeModState = <Cfg, Inst, Deps extends { readonly [Name: string]: unknown
 						return true;
 					}
 					if (dependents.length) {
+						state = 'awaiting_finalization';
 						logger.info(`[${name}] Waiting for dependent modules to finish finalization.`);
 						await Promise.all(dependents.map((dep) => dep.finalized()));
 					}
+					state = 'finalizing';
 					logger.info(`[${name}] Finalizing module.`);
 					const finalizationResult = finalize ? await finalize().catch(() => false) ?? true : true;
+					state = finalizationResult ? 'finalized' : 'finalization_failed';
 					logger.info(`[${name}] Finalization finished${finalizationResult ? '' : ' with errors'}.`);
 					return finalizationResult;
 				})();
@@ -164,13 +177,17 @@ const makeModState = <Cfg, Inst, Deps extends { readonly [Name: string]: unknown
 		},
 		finalized,
 		status() {
-			return status?.() ?? {};
+			return {
+				state,
+				status: status?.() ?? {},
+			};
 		},
 	} as const;
 };
 
-const makeLifecycle = (logger: Logger, modStates: readonly ModState<unknown>[]) => {
+const makeLifecycle = (logger: Logger, modGuides: readonly ModGuide<unknown>[]) => {
 	let phase: Phase = 'loading';
+	let interruptStart: ReturnType<typeof makeResolvable<void>> | null = null;
 	const stopped = makeResolvable<{ ok: boolean }>();
 
 	const changePhase = (newPhase: Phase, allowedCurrentPhases?: readonly Phase[]) => {
@@ -183,10 +200,43 @@ const makeLifecycle = (logger: Logger, modStates: readonly ModState<unknown>[]) 
 		logger.info(`Lifecycle phase changed to '${newPhase}'.`);
 	};
 
+	const stop = () => {
+		if (phase !== 'stopping' && phase !== 'stopped') {
+			if (phase === 'starting') {
+				interruptStart = makeResolvable<void>();
+			}
+
+			changePhase('stopping', ['ready', 'starting_failed', 'starting']);
+
+			(async () => {
+				if (interruptStart) {
+					logger.info('Waiting before stopping until starting is interrupted.');
+					await interruptStart.promise;
+				}
+
+				logger.info(`Finalization of all modules.`);
+				const reversedModGuides = [...modGuides].reverse();
+				const finalizationPromises: Promise<boolean>[] = [];
+
+				for (const modGuide of reversedModGuides) {
+					if (modGuide.getOptions().orderedFinalization) {
+						const finalizationOk = (await Promise.all(finalizationPromises)).every((ok) => ok);
+						finalizationPromises.splice(0, finalizationPromises.length, Promise.resolve(finalizationOk));
+					}
+					finalizationPromises.push(modGuide.finalize());
+				}
+				const finalizationOk = (await Promise.all(finalizationPromises)).every((ok) => ok);
+
+				changePhase(finalizationOk ? 'stopped' : 'stopping_failed');
+				stopped.resolve({ ok: finalizationOk });
+			})();
+		}
+	};
+
 	return {
 		configure: (envVars: EnvVars) => {
 			changePhase('configuring', ['loading']);
-			const configResults = modStates.map((modState) => [modState.getName(), modState.configure(envVars)] as const);
+			const configResults = modGuides.map((modGuide) => [modGuide.getName(), modGuide.configure(envVars)] as const);
 			const result = configResults.every((r) => r[1].ok)
 				? ({ ok: true } as const)
 				: ({
@@ -198,48 +248,34 @@ const makeLifecycle = (logger: Logger, modStates: readonly ModState<unknown>[]) 
 			changePhase(result.ok ? 'configured' : 'configuration_failed');
 			return result;
 		},
-		async start() {
+		async start(options?: { autoStopOnError?: boolean }) {
 			changePhase('starting', ['configured']);
 			logger.info(`Starting initialization of all modules.`);
-			for (const modState of modStates) {
-				const inst = await modState.initialize();
+			for (const modGuide of modGuides) {
+				const inst = await modGuide.initialize();
+				if (interruptStart) {
+					interruptStart.resolve();
+					return { started: false, stopping: true };
+				}
 				if (!inst) {
 					changePhase('starting_failed');
-					return false;
+					if (options?.autoStopOnError) {
+						stop();
+					}
+					return { started: false, stopping: !!options?.autoStopOnError };
 				}
 			}
 			changePhase('ready');
-			return true;
+			return { started: true };
 		},
-		stop() {
-			if (phase !== 'stopping') {
-				changePhase('stopping', ['ready', 'starting_failed']);
-				logger.info(`Starting finalization of all modules.`);
-				(async () => {
-					const reversedModStates = [...modStates].reverse();
-					const finalizationPromises: Promise<boolean>[] = [];
-
-					for (const modState of reversedModStates) {
-						if (modState.getOptions().orderedFinalization) {
-							const finalizationOk = (await Promise.all(finalizationPromises)).every((ok) => ok);
-							finalizationPromises.splice(0, finalizationPromises.length, Promise.resolve(finalizationOk));
-						}
-						finalizationPromises.push(modState.finalize());
-					}
-					const finalizationOk = (await Promise.all(finalizationPromises)).every((ok) => ok);
-
-					changePhase(finalizationOk ? 'stopped' : 'stopping_failed');
-					stopped.resolve({ ok: finalizationOk });
-				})();
-			}
-		},
+		stop,
 		async stopped() {
 			return stopped.promise;
 		},
 		status() {
 			return {
 				phase,
-				modules: modStates.map((modState) => [modState.getName(), modState.status()]),
+				modules: Object.fromEntries(modGuides.map((modGuide) => [modGuide.getName(), modGuide.status()] as const)),
 			};
 		},
 	} as const;
@@ -250,7 +286,7 @@ type Lifecycle = ReturnType<typeof makeLifecycle>;
 // Recursive ModStackBuilder builder type.
 export type ModStackBuilder<
 	A extends {
-		readonly [name: string]: ModState<unknown>;
+		readonly [name: string]: ModGuide<unknown>;
 	},
 > = {
 	readonly add: <
@@ -265,31 +301,31 @@ export type ModStackBuilder<
 	  name: Name extends keyof A ? never : Name, // Prevents already registered name to be added.
 	  mod: Mod<Cfg, Inst, Deps>,
 	  depKeys: DepKeys,
-  ) => ModStackBuilder<{} & A & { [K in Name]: ModState<Inst> }>;
+  ) => ModStackBuilder<{} & A & { [K in Name]: ModGuide<Inst> }>;
 	readonly complete: () => Lifecycle;
 };
 
-const makeModstack = <A extends { readonly [Name: string]: ModState<unknown> }>(
+const makeModstack = <A extends { readonly [Name: string]: ModGuide<unknown> }>(
 	{ logger, lifecycleDep }: { logger: Logger; lifecycleDep: { setLifecycle: (lc: Lifecycle) => void } },
-	modStates: A,
+	modGuides: A,
 ): ModStackBuilder<A> =>
 	({
 		add: (name, mod, depKeys) => {
-			const depModStates = Object.fromEntries(
-				Object.keys(depKeys).map((depName) => [depName, modStates[depKeys[depName]]] as const),
+			const depModGuides = Object.fromEntries(
+				Object.keys(depKeys).map((depName) => [depName, modGuides[depKeys[depName]]] as const),
 			) as unknown as {
 				[DK in keyof ModParams<typeof mod>['D']]: {
 					getInstance: (dependent: { finalized: () => Promise<void> }) => ModParams<typeof mod>['D'][DK];
 					finalize: () => Promise<boolean>;
 				};
-			}; // TODO: Type!
+			}; // NOTE: Type assertion.
 			return makeModstack({ logger, lifecycleDep }, {
-				...modStates,
-				[name]: makeModState(logger, name, mod, depModStates),
+				...modGuides,
+				[name]: makeModState(logger, name, mod, depModGuides),
 			} as const);
 		},
 		complete: () => {
-			const lifecycle = makeLifecycle(logger, Object.values(modStates));
+			const lifecycle = makeLifecycle(logger, Object.values(modGuides));
 			lifecycleDep.setLifecycle(lifecycle);
 			return lifecycle;
 		},

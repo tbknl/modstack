@@ -3,8 +3,6 @@ import { modstack, ModstackError } from 'modstack';
 import { ensureThrow, ensurePromiseReject } from './helpers/utils.js';
 
 // TODO: logger.
-// TODO: lifecycle dep
-// TODO: complete + lifecycle
 
 type EnvVars = Record<string, string | undefined>;
 
@@ -403,9 +401,9 @@ describe('lifecycle', () => {
 		it('switches to "ready" phase after successful initialization', async () => {
 			const lifecycle = makeStandardTestModstackBuilder().complete();
 			lifecycle.configure({});
-			const startResult = await lifecycle.start();
+			const { started } = await lifecycle.start();
 
-			expect(startResult).toBe(true);
+			expect(started).toBe(true);
 			expect(lifecycle.status().phase).toEqual('ready');
 		});
 
@@ -417,9 +415,9 @@ describe('lifecycle', () => {
 				.complete();
 
 			lifecycle.configure({});
-			const startResult = await lifecycle.start();
+			const { started } = await lifecycle.start();
 
-			expect(startResult).toBe(false);
+			expect(started).toBe(false);
 			expect(lifecycle.status().phase).toEqual('starting_failed');
 		});
 
@@ -441,9 +439,9 @@ describe('lifecycle', () => {
 				.complete();
 
 			lifecycle.configure({});
-			const startResult = await lifecycle.start();
+			const { started } = await lifecycle.start();
 
-			expect(startResult).toBe(true);
+			expect(started).toBe(true);
 			expect(audit).toEqual([
 				{ modName: 'a' },
 				{ modName: 'b' },
@@ -472,9 +470,9 @@ describe('lifecycle', () => {
 				.complete();
 
 			lifecycle.configure({});
-			const startResult = await lifecycle.start();
+			const { started } = await lifecycle.start();
 
-			expect(startResult).toBe(false);
+			expect(started).toEqual(false);
 			expect(audit).toEqual([
 				{ modName: 'a' },
 				{ modName: 'b' },
@@ -498,9 +496,27 @@ describe('lifecycle', () => {
 				.complete();
 
 			lifecycle.configure({});
-			const started = await lifecycle.start();
+			const { started } = await lifecycle.start();
 			expect(started).toEqual(true);
 			expect(events).toEqual(['on-init mod-b']);
+		});
+
+		it.each([
+			{ autoStopOnError: false },
+			{ autoStopOnError: true },
+		] as const)('provides an option to automatically call stop upon initialization failure', async ({ autoStopOnError }) => {
+			const logger = makeLoggerMock();
+			const lifecycle = modstack({ logger })
+				.add('mod-a', {
+					initialize: async (_cfg: null) => { throw new Error('Init failure!'); },
+				} as const, {})
+				.complete();
+
+			lifecycle.configure({});
+			const { started, stopping } = await lifecycle.start({ autoStopOnError });
+			expect(started).toEqual(false);
+			expect(stopping).toEqual(autoStopOnError);
+			expect(lifecycle.status().phase).toEqual(autoStopOnError ? 'stopping' : 'starting_failed');
 		});
 	});
 
@@ -523,7 +539,7 @@ describe('lifecycle', () => {
 				.complete();
 
 			lifecycle.configure({});
-			const started = await lifecycle.start();
+			const { started } = await lifecycle.start();
 			expect(started).toEqual(true);
 			lifecycle.stop();
 			await lifecycle.stopped();
@@ -542,7 +558,7 @@ describe('lifecycle', () => {
 		it('allows to stop from phase "ready"', async () => {
 			const lifecycle = makeStandardTestModstackBuilder().complete();
 			lifecycle.configure({});
-			const started = await lifecycle.start();
+			const { started } = await lifecycle.start();
 			expect(started).toEqual(true);
 			expect(() => lifecycle.stop()).not.toThrow();
 			await lifecycle.stopped();
@@ -555,11 +571,82 @@ describe('lifecycle', () => {
 				} as const, {})
 				.complete();
 			lifecycle.configure({});
-			const started = await lifecycle.start();
+			const { started } = await lifecycle.start();
 			expect(started).toEqual(false);
 			expect(() => lifecycle.stop()).not.toThrow();
 			await lifecycle.stopped();
 		});
+
+		it('switches to phase "stopped" when finalization of all modules succeeds', async () => {
+			const lifecycle = makeStandardTestModstackBuilder()
+				.add('fin-ok', {
+                    initialize: async (_cfg: null) => ({
+                        instance: {},
+                        async finalize() {},
+                    }),
+				} as const, {})
+				.complete();
+			lifecycle.configure({});
+			await lifecycle.start();
+            lifecycle.stop();
+			await lifecycle.stopped();
+			expect(lifecycle.status().phase).toEqual('stopped');
+		});
+
+		it('switches to phase "stopping_failed" when finalization of a mod fails', async () => {
+			const lifecycle = makeStandardTestModstackBuilder()
+				.add('fin-fail', {
+                    initialize: async (_cfg: null) => ({
+                        instance: {},
+                        async finalize() { return false; },
+                    }),
+				} as const, {})
+				.complete();
+			lifecycle.configure({});
+			await lifecycle.start();
+            lifecycle.stop();
+			await lifecycle.stopped();
+			expect(lifecycle.status().phase).toEqual('stopping_failed');
+		});
+
+        it.each([
+            { description: 'module does not have a finalize function', finalizeFunc: undefined },
+            { description: 'finalize function returns void', finalizeFunc: async () => {} },
+            { description: 'finalize function returns true', finalizeFunc: async () => true },
+        ] as const)('succeeds finalization when $description', async ({ finalizeFunc }) => {
+   			const lifecycle = makeStandardTestModstackBuilder()
+				.add('mod', {
+                    initialize: async (_cfg: null) => ({
+                        instance: {},
+                        ...(finalizeFunc && { finalize: finalizeFunc }),
+                    }),
+				} as const, {})
+				.complete();
+			lifecycle.configure({});
+			await lifecycle.start();
+            lifecycle.stop();
+			await lifecycle.stopped();
+			expect(lifecycle.status().phase).toEqual('stopped');
+        });
+
+        it.each([
+            { description: 'finalize function returns false', finalizeFunc: async () => false },
+            { description: 'finalize function promise is rejected', finalizeFunc: async () => { throw new Error('Fail!'); } },
+        ] as const)('fails finalization when $description', async ({ finalizeFunc }) => {
+   			const lifecycle = makeStandardTestModstackBuilder()
+				.add('mod', {
+                    initialize: async (_cfg: null) => ({
+                        instance: {},
+                        finalize: finalizeFunc,
+                    }),
+				} as const, {})
+				.complete();
+			lifecycle.configure({});
+			await lifecycle.start();
+            lifecycle.stop();
+			await lifecycle.stopped();
+			expect(lifecycle.status().phase).toEqual('stopping_failed');
+        });
 
 		it('finalizes modules in reverse order', async () => {
 			const events: string[] = [];
@@ -592,7 +679,7 @@ describe('lifecycle', () => {
 			]);
 		});
 
-		it.only('wait with module finalization until all its dependents are finalized', async () => {
+		it('wait with module finalization until all its dependents are finalized', async () => {
 			const events: string[] = [];
 
 			const makeFinalizeMod = (modId: string, options?: { delay?: number }) => ({
@@ -604,7 +691,7 @@ describe('lifecycle', () => {
 								events.push(`Delaying finalize ${modId}`);
 								await new Promise<void>((resolve) => setTimeout(resolve, options.delay));
 							}
-							events.push(`Finalizing ${modId}`);
+							events.push(`Finalized ${modId}`);
 						},
 					};
 				},
@@ -630,27 +717,245 @@ describe('lifecycle', () => {
 			await lifecycle.stopped();
 
 			expect(events).toEqual([
-				'Finalizing C1',
+				'Finalized C1',
 				'Delaying finalize B4',
-				'Finalizing B2',
+				'Finalized B2',
 				'Delaying finalize A3',
-				'Finalizing A1',
-				'Finalizing X0',
-				'Finalizing B4',
-				'Finalizing B3',
-				'Finalizing B1',
-				'Finalizing X1',
-				'Finalizing A3',
-				'Finalizing A2',
+				'Finalized A1',
+				'Finalized X0',
+				'Finalized B4',
+				'Finalized B3',
+				'Finalized B1',
+				'Finalized X1',
+				'Finalized A3',
+				'Finalized A2',
 			]);
 		});
 
-		// TODO: Ordered finalization option.
-		// TODO: Succeed finalization by (1) returning void (2) returning true;
-		// TODO: Fail finalization by (1) throwing error (2) returning false.
-		// TODO: Switches phase to 'stopped' after successful finalization.
-		// TODO: Switches phase to 'stopping_failed' after failing finalization.
+		it('uses ordered-finalization option to synchronize finalization', async () => {
+			const events: string[] = [];
+
+			const makeFinalizeMod = (modId: string, options?: { delay?: number }) => ({
+				initialize: async (_cfg: null) => {
+					return {
+						instance: {},
+						finalize: async () => {
+							if (options?.delay) {
+								events.push(`Delaying finalize ${modId}`);
+								await new Promise<void>((resolve) => setTimeout(resolve, options.delay));
+							}
+							events.push(`Finalized ${modId}`);
+						},
+					};
+				},
+			});
+
+			const logger = makeLoggerMock();
+			const lifecycle = modstack({ logger })
+				.add('mod0', makeFinalizeMod('0'), {})
+                .add('syncFinMod-A', {
+                    ...makeFinalizeMod('sync-A', { delay: 10 }),
+                    options: {
+                        orderedFinalization: true,
+                    }
+                }, {})
+				.add('mod1', makeFinalizeMod('1'), {})
+				.add('mod2', makeFinalizeMod('2', { delay: 20 }), {})
+				.complete();
+
+			lifecycle.configure({});
+			await lifecycle.start();
+			lifecycle.stop();
+			await lifecycle.stopped();
+
+			expect(events).toEqual([
+				'Delaying finalize 2',
+				'Finalized 1',
+				'Finalized 2',
+				'Delaying finalize sync-A',
+				'Finalized 0',
+				'Finalized sync-A',
+			]);
+		});
+
+		it('ignores an additional call to stop while already stopping or stopped', async () => {
+            const events: string[] = [];
+			const lifecycle = makeStandardTestModstackBuilder()
+				.add('mod', {
+                    initialize: async (_cfg: null) => ({
+                        instance: {},
+                        async finalize() { events.push('Finalizing'); },
+                    }),
+				} as const, {})
+				.complete();
+			lifecycle.configure({});
+			await lifecycle.start();
+            lifecycle.stop();
+			expect(lifecycle.status().phase).toEqual('stopping');
+            lifecycle.stop();
+			expect(lifecycle.status().phase).toEqual('stopping');
+			await lifecycle.stopped();
+            lifecycle.stop();
+			expect(lifecycle.status().phase).toEqual('stopped');
+            expect(events).toEqual(['Finalizing']);
+		});
+
+		it('interrupts the starting phase', async () => {
+			const events: string[] = [];
+			const makeEventMod = (name: string) => ({
+				async initialize(_cfg: null) {
+					events.push(`Initialize ${name}`);
+					return {
+						instance: {},
+						async finalize() {
+							events.push(`Finalize ${name}`);
+						},
+					};
+				}
+			});
+			const lifecycle = makeStandardTestModstackBuilder()
+				.add('mod-first', makeEventMod('first'), {})
+				.add('mod-stop', {
+					async initialize(_cfg: null, deps: { lifecycle: { stop: () => void } }) {
+						deps.lifecycle.stop();
+						return { instance: {} };
+					},
+				} as const, { lifecycle: 'lifecycle' })
+				.add('mod-last', makeEventMod('last'), {})
+				.complete();
+			lifecycle.configure({});
+			const { started, stopping } = await lifecycle.start();
+			expect(started).toBe(false);
+			expect(stopping).toBe(true);
+			expect(lifecycle.status().phase).toEqual('stopping');
+			await lifecycle.stopped();
+			expect(events).toEqual([
+				'Initialize first',
+				'Finalize first',
+				// NOTE: last mod will not be initialized nor finalized.
+			]);
+		});
 	});
 
-	// TODO: Status
+    describe('status', () => {
+        it('exposes the current phase', () => {
+			const lifecycle = makeStandardTestModstackBuilder().complete();
+            expect(lifecycle.status().phase).toEqual('loading');
+            lifecycle.configure({});
+            expect(lifecycle.status().phase).toEqual('configured');
+        });
+
+        it('exposes the state per module', async () => {
+			const lifecycle = makeStandardTestModstackBuilder()
+				.add('mod-init-fail', {
+                    initialize: async (_cfg: null) => {
+                        throw new Error('Failed to initialize!');
+                    },
+				} as const, {})
+				.add('mod-no-init', {
+                    initialize: async (_cfg: null) => {
+                        throw new Error('Will not be reached');
+                    },
+				} as const, {})
+                .complete();
+            lifecycle.configure({});
+            await lifecycle.start();
+            expect(lifecycle.status().phase).toEqual('starting_failed');
+            expect(lifecycle.status().modules).toEqual({
+                lifecycle: expect.objectContaining({ state: 'initialized' }),
+                'mod-a': expect.objectContaining({ state: 'initialized' }),
+                'mod-b': expect.objectContaining({ state: 'initialized' }),
+                'mod-init-fail': expect.objectContaining({ state: 'initialization_failed' }),
+                'mod-no-init': expect.objectContaining({ state: 'configured' }),
+            });
+        });
+
+        it('calls status on all mods which have the status func returned from initialize', async () => {
+			const logger = makeLoggerMock();
+            let counter = 0;
+			const lifecycle = modstack({ logger })
+				.add('mod-status-counter', {
+                    initialize: async (_cfg: null) => ({
+                        instance: {},
+                        status: () => ({ counter: counter++ })
+                    }),
+				} as const, {})
+				.add('mod-no-status-func', {
+                    initialize: async (_cfg: null) => ({
+                        instance: {},
+                    }),
+				} as const, {})
+                .complete();
+
+            lifecycle.configure({});
+            expect(lifecycle.status().modules).toEqual({
+                lifecycle: expect.objectContaining({ status: {} }),
+                'mod-status-counter': expect.objectContaining({ status: {} }),
+                'mod-no-status-func': expect.objectContaining({ status: {} }),
+            });
+
+            await lifecycle.start();
+            expect(lifecycle.status().modules).toEqual({
+                lifecycle: expect.objectContaining({ status: {} }),
+                'mod-status-counter': expect.objectContaining({ status: { counter: 0 } }),
+                'mod-no-status-func': expect.objectContaining({ status: {} }),
+            });
+            expect(lifecycle.status().modules).toEqual({
+                lifecycle: expect.objectContaining({ status: {} }),
+                'mod-status-counter': expect.objectContaining({ status: { counter: 1 } }),
+                'mod-no-status-func': expect.objectContaining({ status: {} }),
+            });
+        });
+    });
+});
+
+describe('lifecycle dependency', () => {
+    it('exposes the lifecycle status method', async () => {
+        const logger = makeLoggerMock();
+        const trigger = {
+            func: () => null as unknown,
+        };
+        const lifecycle = modstack({ logger })
+            .add('mod-lifecycle-user', {
+                initialize: async (_cfg: null, deps: { lifecycle: { status: () => { phase: string, modules: Record<string, { state: string, status: unknown }> } } }) => {
+                    trigger.func = () => lifecycle.status();
+                    return {
+                        instance: {},
+                        status: () => ({ triggerFuncSet: true }),
+                    };
+                },
+            } as const, { lifecycle: 'lifecycle' })
+            .complete();
+        lifecycle.configure({});
+        await lifecycle.start();
+        const statusFromLifecycleDep = trigger.func();
+        expect(statusFromLifecycleDep).toMatchObject({
+            phase: 'ready',
+            modules: {
+                lifecycle: { state: 'initialized', status: {} },
+                'mod-lifecycle-user': { state: 'initialized', status: { triggerFuncSet: true } },
+            }
+        });
+    });
+
+    it('exposes the lifecycle stop method', async () => {
+        const logger = makeLoggerMock();
+        const trigger = {
+            func: () => {},
+        };
+        const lifecycle = modstack({ logger })
+            .add('mod-lifecycle-user', {
+                initialize: async (_cfg: null, deps: { lifecycle: { stop: () => void } }) => {
+                    trigger.func = () => lifecycle.stop();
+                    return {
+                        instance: {},
+                    };
+                },
+            } as const, { lifecycle: 'lifecycle' })
+            .complete();
+        lifecycle.configure({});
+        await lifecycle.start();
+        setTimeout(trigger.func, 100);
+        await lifecycle.stopped();
+    });
 });
