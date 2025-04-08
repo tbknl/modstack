@@ -13,9 +13,7 @@
     }
   },
   "scripts": {
-    "start": "node .",
     "build": "tsc -p tsconfig.build.json",
-    "pretest": "tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run"
   },
   "license": "MIT",
@@ -26,8 +24,8 @@
     "dist/"
   ],
   "devDependencies": {
-    "@types/node": "20.12.12",
-    "typescript": "5.4.5",
-    "vitest": "2.0.5"
+    "@types/node": "22.14.0",
+    "typescript": "5.8.3",
+    "vitest": "3.1.1"
   }
 }
