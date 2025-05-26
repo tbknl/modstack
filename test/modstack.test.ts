@@ -870,6 +870,39 @@ describe('lifecycle', () => {
             });
         });
 
+        it.each([
+			{ init: 'success' },
+			{ init: 'failure' },
+		] as const)('indicates whether the lifecycle is in a stoppable phase (with initialization $init)', async ({ init }) => {
+			const lifecycle = makeStandardTestModstackBuilder()
+				.add('mod-init-delay', {
+                    initialize: async (_cfg: null) => {
+						await new Promise<void>((resolve) => setTimeout(resolve, 10));
+						return { instance: {} };
+                    },
+				} as const, {})
+				.add('mod-init-optional-fail', {
+                    initialize: async (_cfg: null) => {
+						if (init === 'failure') {
+							throw new Error('Initialization failure!');
+						}
+						return { instance: {} };
+                    },
+				} as const, {})
+				.complete();
+            expect(lifecycle.status().inStoppablePhase).toBe(false);
+            lifecycle.configure({});
+            expect(lifecycle.status().inStoppablePhase).toBe(false);
+            const startPromise = lifecycle.start({});
+            expect(lifecycle.status().inStoppablePhase).toBe(true);
+			await startPromise;
+            expect(lifecycle.status().inStoppablePhase).toBe(true);
+            lifecycle.stop();
+            expect(lifecycle.status().inStoppablePhase).toBe(false);
+			await lifecycle.stopped();
+            expect(lifecycle.status().inStoppablePhase).toBe(false);
+        });
+
         it('calls status on all mods which have the status func returned from initialize', async () => {
 			const logger = makeLoggerMock();
             let counter = 0;

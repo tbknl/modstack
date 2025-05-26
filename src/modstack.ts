@@ -189,6 +189,7 @@ const makeLifecycle = (logger: Logger, modGuides: readonly ModGuide<unknown>[]) 
 	let phase: Phase = 'loading';
 	let interruptStart: ReturnType<typeof makeResolvable<void>> | null = null;
 	const stopped = makeResolvable<{ ok: boolean }>();
+	const stoppablePhases: readonly Phase[] = ['ready', 'starting_failed', 'starting'];
 
 	const changePhase = (newPhase: Phase, allowedCurrentPhases?: readonly Phase[]) => {
 		if (allowedCurrentPhases && !allowedCurrentPhases.includes(phase)) {
@@ -206,7 +207,7 @@ const makeLifecycle = (logger: Logger, modGuides: readonly ModGuide<unknown>[]) 
 				interruptStart = makeResolvable<void>();
 			}
 
-			changePhase('stopping', ['ready', 'starting_failed', 'starting']);
+			changePhase('stopping', stoppablePhases);
 
 			(async () => {
 				if (interruptStart) {
@@ -275,6 +276,7 @@ const makeLifecycle = (logger: Logger, modGuides: readonly ModGuide<unknown>[]) 
 		status() {
 			return {
 				phase,
+				inStoppablePhase: stoppablePhases.includes(phase),
 				modules: Object.fromEntries(modGuides.map((modGuide) => [modGuide.getName(), modGuide.status()] as const)),
 			};
 		},
