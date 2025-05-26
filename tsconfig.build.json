@@ -6,6 +6,8 @@
     "noUnusedParameters": true
   },
   "files": [
-    "src/modstack.ts"
+    "src/modstack.ts",
+    "src/app-modules/stop-signal-handler.ts",
+    "src/app-modules/control-server.ts"
   ]
 }

@@ -10,6 +10,14 @@
     ".": {
       "types": "./dist/modstack.d.ts",
       "default": "./dist/modstack.js"
+    },
+    "./app-modules/stop-signal-handler": {
+      "types": "./dist/app-modules/stop-signal-handler.d.ts",
+      "default": "./dist/app-modules/stop-signal-handler.js"
+    },
+    "./app-modules/control-server": {
+      "types": "./dist/app-modules/control-server.d.ts",
+      "default": "./dist/app-modules/control-server.js"
     }
   },
   "scripts": {
