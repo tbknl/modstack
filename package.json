@@ -18,6 +18,14 @@
     "./app-modules/control-server": {
       "types": "./dist/app-modules/control-server.d.ts",
       "default": "./dist/app-modules/control-server.js"
+    },
+    "./utils/app-module-compatibility": {
+      "types": "./dist/utils/app-module-compatibility.d.ts",
+      "default": "./dist/utils/app-module-compatibility.js"
+    },
+    "./utils/env-vars-proxy": {
+      "types": "./dist/utils/env-vars-proxy.d.ts",
+      "default": "./dist/utils/env-vars-proxy.js"
     }
   },
   "scripts": {
