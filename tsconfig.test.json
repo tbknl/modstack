@@ -3,9 +3,11 @@
   "compilerOptions": {
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+	"rootDir": ".",
     "paths": {
       "#@/*": ["./dist/*"],
-      "modstack": ["./dist/modstack.d.ts"]
+      "modstack": ["."],
+      "modstack/utils/*": ["./dist/utils/*"]
     }
   },
   "types": ["vitest/globals"]

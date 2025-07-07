@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { modstack, ModstackError } from 'modstack';
 import { ensureThrow, ensurePromiseReject } from './helpers/utils.js';
 
-// TODO: logger.
-
 type EnvVars = Record<string, string | undefined>;
 
 const makeLoggerMock = () => ({
@@ -950,7 +948,7 @@ describe('lifecycle dependency', () => {
         };
         const lifecycle = modstack({ logger })
             .add('mod-lifecycle-user', {
-                initialize: async (_cfg: null, deps: { lifecycle: { status: () => { phase: string, modules: Record<string, { state: string, status: unknown }> } } }) => {
+                initialize: async (_cfg: null, _deps: { lifecycle: { status: () => { phase: string, modules: Record<string, { state: string, status: unknown }> } } }) => {
                     trigger.func = () => lifecycle.status();
                     return {
                         instance: {},
@@ -978,7 +976,7 @@ describe('lifecycle dependency', () => {
         };
         const lifecycle = modstack({ logger })
             .add('mod-lifecycle-user', {
-                initialize: async (_cfg: null, deps: { lifecycle: { stop: () => void } }) => {
+                initialize: async (_cfg: null, _deps: { lifecycle: { stop: () => void } }) => {
                     trigger.func = () => lifecycle.stop();
                     return {
                         instance: {},
