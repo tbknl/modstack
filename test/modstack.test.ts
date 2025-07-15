@@ -11,6 +11,7 @@ const makeLoggerMock = () => ({
 });
 
 const makeMod = () => ({
+	configure: () => ({ ok: true, value: null }) as const,
 	initialize: async (_cfg: null) => ({ instance: {} }),
 });
 
@@ -49,6 +50,7 @@ describe('mod stack builder', () => {
 	it('allows to define compatible dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const basicCalculatorMod = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: {
 					square: (x: number) => x * x,
@@ -58,6 +60,7 @@ describe('mod stack builder', () => {
 			}),
 		};
 		const advancedCalculatorMod = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null, { calculator }: {
 				calculator: { square(x: number): number; sum(a: number[]): number }
 			}) => ({
@@ -75,11 +78,13 @@ describe('mod stack builder', () => {
 	it('allows to define optional dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const modA = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a!' },
 			}),
 		};
 		const modB = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null, _deps: {
 				a?: { sayA(): string },
 			}) => ({ instance: {} }),
@@ -94,16 +99,19 @@ describe('mod stack builder', () => {
 	it('allows to define multiple dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const modA = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a!' },
 			}),
 		};
 		const modB = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayB: () => 'b!' },
 			}),
 		};
 		const modC = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null, _deps: {
 				a: { sayA(): string },
 				b: { sayB(): string },
@@ -120,16 +128,19 @@ describe('mod stack builder', () => {
 	it('allows to define a record of same-type dependencies for a module', () => {
 		const logger = makeLoggerMock();
 		const modA1 = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a1!' },
 			}),
 		};
 		const modA2 = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'a2!' },
 			}),
 		};
 		const modB = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null, _multipleA: Record<string, { sayA(): string }>) => ({
 				instance: {}
 			}),
@@ -145,11 +156,13 @@ describe('mod stack builder', () => {
 	it('checks that dependencies are type-compatible', () => {
 		const logger = makeLoggerMock();
 		const modB = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayB: () => 'b!' },
 			}),
 		};
 		const modC = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null, _deps: {
 				a: { sayA(): string },
 			}) => ({ instance: {} }),
@@ -166,16 +179,19 @@ describe('mod stack builder', () => {
 	it('checks that all non-optional dependencies are provided', () => {
 		const logger = makeLoggerMock();
 		const modA = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayA: () => 'b!' },
 			}),
 		};
 		const modB = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null) => ({
 				instance: { sayB: () => 'b!' },
 			}),
 		};
 		const modC = {
+			configure: () => ({ ok: true, value: null }) as const,
 			initialize: async (_cfg: null, _deps: {
 				a1: { sayA(): string },
 				a2: { sayA(): string },
@@ -370,6 +386,7 @@ describe('lifecycle', () => {
 			let observedPhase = '';
 
 			const initPhaseCheckerMod = {
+				configure: () => ({ ok: true, value: null }) as const,
 				initialize: async (_cfg: null, { lifecycle }: { lifecycle: { status: () => { phase: string }}}) => {
 					observedPhase = lifecycle.status().phase;
 					return { instance: {} };
@@ -407,7 +424,8 @@ describe('lifecycle', () => {
 
 		it('switches to "starting_failed" phase on error during initialization', async () => {
 			const lifecycle = makeStandardTestModstackBuilder()
-				.add('failing-config', {
+				.add('failing-init', {
+					configure: () => ({ ok: true, value: null }) as const,
 					initialize(_cfg: null) { throw new Error('Init error!'); },
 				} as const, {})
 				.complete();
@@ -423,6 +441,7 @@ describe('lifecycle', () => {
 			const audit: { modName: string }[] = [];
 
 			const makeAuditInitMod = ({ modName }: { modName: string }) => ({
+				configure: () => ({ ok: true, value: null }) as const,
 				initialize: async (_cfg: null) => {
 					audit.push({ modName });
 					return { instance: {} };
@@ -451,6 +470,7 @@ describe('lifecycle', () => {
 			const audit: { modName: string }[] = [];
 
 			const makeAuditInitMod = ({ modName, fail }: { modName: string; fail?: true }) => ({
+				configure: () => ({ ok: true, value: null }) as const,
 				initialize: async (_cfg: null) => {
 					audit.push({ modName });
 					if (fail) {
@@ -483,9 +503,11 @@ describe('lifecycle', () => {
 			const events: string[] = [];
 			const lifecycle = modstack({ logger })
 				.add('mod-a', {
+					configure: () => ({ ok: true, value: null }) as const,
 					initialize: async (_cfg: null) => ({ instance: { doA(event: string) { events.push(event); } } }),
 				} as const, {})
 				.add('mod-b', {
+					configure: () => ({ ok: true, value: null }) as const,
 					async initialize(_cfg: null, deps: { modA: { doA: (event: string) => void } }) {
 						deps.modA.doA('on-init mod-b');
 						return { instance: {} };
@@ -506,6 +528,7 @@ describe('lifecycle', () => {
 			const logger = makeLoggerMock();
 			const lifecycle = modstack({ logger })
 				.add('mod-a', {
+					configure: () => ({ ok: true, value: null }) as const,
 					initialize: async (_cfg: null) => { throw new Error('Init failure!'); },
 				} as const, {})
 				.complete();
@@ -523,6 +546,7 @@ describe('lifecycle', () => {
 			let observedPhase = '';
 
 			const stoppingPhaseCheckerMod = {
+				configure: () => ({ ok: true, value: null }) as const,
 				initialize: async (_cfg: null, { lifecycle }: { lifecycle: { status: () => { phase: string }}}) => {
 					return {
 						instance: {},
@@ -565,6 +589,7 @@ describe('lifecycle', () => {
 		it('allows to stop from phase "starting_failed"', async () => {
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('fail-to-start', {
+					configure: () => ({ ok: true, value: null }) as const,
 					async initialize(_cfg: null) { throw new Error('Failed to initialize!'); },
 				} as const, {})
 				.complete();
@@ -578,6 +603,7 @@ describe('lifecycle', () => {
 		it('switches to phase "stopped" when finalization of all modules succeeds', async () => {
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('fin-ok', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => ({
                         instance: {},
                         async finalize() {},
@@ -594,6 +620,7 @@ describe('lifecycle', () => {
 		it('switches to phase "stopping_failed" when finalization of a mod fails', async () => {
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('fin-fail', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => ({
                         instance: {},
                         async finalize() { return false; },
@@ -614,6 +641,7 @@ describe('lifecycle', () => {
         ] as const)('succeeds finalization when $description', async ({ finalizeFunc }) => {
    			const lifecycle = makeStandardTestModstackBuilder()
 				.add('mod', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => ({
                         instance: {},
                         ...(finalizeFunc && { finalize: finalizeFunc }),
@@ -633,6 +661,7 @@ describe('lifecycle', () => {
         ] as const)('fails finalization when $description', async ({ finalizeFunc }) => {
    			const lifecycle = makeStandardTestModstackBuilder()
 				.add('mod', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => ({
                         instance: {},
                         finalize: finalizeFunc,
@@ -650,6 +679,7 @@ describe('lifecycle', () => {
 			const events: string[] = [];
 
 			const makeFinalizeMod = (modId: string) => ({
+				configure: () => ({ ok: true, value: null }) as const,
 				initialize: async (_cfg: null) => {
 					return {
 						instance: {},
@@ -681,6 +711,7 @@ describe('lifecycle', () => {
 			const events: string[] = [];
 
 			const makeFinalizeMod = (modId: string, options?: { delay?: number }) => ({
+				configure: () => ({ ok: true, value: null }) as const,
 				initialize: async (_cfg: null) => {
 					return {
 						instance: {},
@@ -734,6 +765,7 @@ describe('lifecycle', () => {
 			const events: string[] = [];
 
 			const makeFinalizeMod = (modId: string, options?: { delay?: number }) => ({
+				configure: () => ({ ok: true, value: null }) as const,
 				initialize: async (_cfg: null) => {
 					return {
 						instance: {},
@@ -780,6 +812,7 @@ describe('lifecycle', () => {
             const events: string[] = [];
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('mod', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => ({
                         instance: {},
                         async finalize() { events.push('Finalizing'); },
@@ -801,6 +834,7 @@ describe('lifecycle', () => {
 		it('interrupts the starting phase', async () => {
 			const events: string[] = [];
 			const makeEventMod = (name: string) => ({
+				configure: () => ({ ok: true, value: null }) as const,
 				async initialize(_cfg: null) {
 					events.push(`Initialize ${name}`);
 					return {
@@ -814,6 +848,7 @@ describe('lifecycle', () => {
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('mod-first', makeEventMod('first'), {})
 				.add('mod-stop', {
+					configure: () => ({ ok: true, value: null }) as const,
 					async initialize(_cfg: null, deps: { lifecycle: { stop: () => void } }) {
 						deps.lifecycle.stop();
 						return { instance: {} };
@@ -846,11 +881,13 @@ describe('lifecycle', () => {
         it('exposes the state per module', async () => {
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('mod-init-fail', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => {
                         throw new Error('Failed to initialize!');
                     },
 				} as const, {})
 				.add('mod-no-init', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => {
                         throw new Error('Will not be reached');
                     },
@@ -874,12 +911,14 @@ describe('lifecycle', () => {
 		] as const)('indicates whether the lifecycle is in a stoppable phase (with initialization $init)', async ({ init }) => {
 			const lifecycle = makeStandardTestModstackBuilder()
 				.add('mod-init-delay', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => {
 						await new Promise<void>((resolve) => setTimeout(resolve, 10));
 						return { instance: {} };
                     },
 				} as const, {})
 				.add('mod-init-optional-fail', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => {
 						if (init === 'failure') {
 							throw new Error('Initialization failure!');
@@ -906,12 +945,14 @@ describe('lifecycle', () => {
             let counter = 0;
 			const lifecycle = modstack({ logger })
 				.add('mod-status-counter', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => ({
                         instance: {},
                         status: () => ({ counter: counter++ })
                     }),
 				} as const, {})
 				.add('mod-no-status-func', {
+					configure: () => ({ ok: true, value: null }) as const,
                     initialize: async (_cfg: null) => ({
                         instance: {},
                     }),
@@ -948,6 +989,7 @@ describe('lifecycle dependency', () => {
         };
         const lifecycle = modstack({ logger })
             .add('mod-lifecycle-user', {
+				configure: () => ({ ok: true, value: null }) as const,
                 initialize: async (_cfg: null, _deps: { lifecycle: { status: () => { phase: string, modules: Record<string, { state: string, status: unknown }> } } }) => {
                     trigger.func = () => lifecycle.status();
                     return {
@@ -976,6 +1018,7 @@ describe('lifecycle dependency', () => {
         };
         const lifecycle = modstack({ logger })
             .add('mod-lifecycle-user', {
+				configure: () => ({ ok: true, value: null }) as const,
                 initialize: async (_cfg: null, _deps: { lifecycle: { stop: () => void } }) => {
                     trigger.func = () => lifecycle.stop();
                     return {

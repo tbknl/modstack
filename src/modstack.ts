@@ -2,10 +2,6 @@ type EnvVars = Record<string, string | undefined>;
 type FinalizeFn = () => Promise<boolean | void>;
 type StatusFn = () => Record<string, unknown>;
 
-type ModCfg<Cfg> = {
-	readonly configure: (envVars: EnvVars) => Readonly<{ ok: true; value: Cfg }> | Readonly<{ ok: false; failure: readonly string[] }>;
-};
-
 type ModOptions = {
 	readonly orderedFinalization?: boolean;
 };
@@ -15,7 +11,8 @@ type ModState = 'added' |
 	'initializing' | 'initialized' | 'initialization_failed' |
 	'awaiting_finalization' | 'finalizing' | 'finalized' | 'finalization_failed';
 
-type Mod<Cfg, Inst, Deps extends { readonly [name: string]: unknown }> = (Cfg extends null ? Partial<ModCfg<Cfg>> : ModCfg<Cfg>) & {
+type Mod<Cfg, Inst, Deps extends { readonly [name: string]: unknown }> = {
+	readonly configure: (envVars: EnvVars) => Readonly<{ ok: true; value: Cfg }> | Readonly<{ ok: false; failure: readonly string[] }>;
 	readonly initialize: (cfg: Cfg, deps: Deps) => Promise<{ instance: Inst; finalize?: FinalizeFn; status?: StatusFn }>;
 	readonly options?: ModOptions;
 };
@@ -341,6 +338,7 @@ const makeLifecycleDep = () => {
 			lifecyclePlaceholder = lifecycle;
 		},
 		mod: {
+			configure: () => ({ ok: true, value: null }) as const,
 			async initialize(_cfg: null) {
 				if (!lifecyclePlaceholder) {
 					throw new ModstackError(

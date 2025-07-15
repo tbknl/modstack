@@ -115,7 +115,7 @@ const makeMyAppModule = ({ logger }: { logger: { error: (msg: string) => void } 
 
 #### Configure
 
-The optional synchronous `configure` takes a dictionary of string-to-string mapped values (typicaly environment variables) as a parameter. It returns the configuration values on success, or a list of failures.
+The synchronous `configure` takes a dictionary of string-to-string mapped values (typicaly environment variables) as a parameter. It returns the configuration values on success, or a list of failures.
 
 The configuration values can be of an arbitrary type, but they must be compatible with the first ("config") parameter of the `initialize` function.
 
