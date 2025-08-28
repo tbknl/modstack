@@ -78,12 +78,12 @@ const makeModState = <Cfg, Inst, Deps extends { readonly [Name: string]: unknown
 	mod: Mod<Cfg, Inst, Deps>,
 	depMap: { [K in keyof Deps]: { getInstance: (dependent: { finalized: () => Promise<void> }) => Deps[K]; finalize: FinalizeFn } },
 ): ModGuide<Inst> => {
-	let cfg: ModParams<typeof mod>['C'] | undefined = undefined; // TODO: Make this work when mod.configure is not defined.
-	let inst: Inst | undefined = undefined;
+	let cfg: ModParams<typeof mod>['C'] | undefined; // TODO: Make this work when mod.configure is not defined.
+	let inst: Inst | undefined;
 	const dependents: { finalized: () => Promise<void> }[] = [];
-	let finalize: FinalizeFn | undefined = undefined;
-	let finalizationPromise: Promise<boolean> | undefined = undefined;
-	let status: StatusFn | undefined = undefined;
+	let finalize: FinalizeFn | undefined;
+	let finalizationPromise: Promise<boolean> | undefined;
+	let status: StatusFn | undefined;
 	let state: ModState = 'added';
 
 	const finalized = () => {
@@ -137,7 +137,7 @@ const makeModState = <Cfg, Inst, Deps extends { readonly [Name: string]: unknown
 					status = initResult.status;
 					state = 'initialized';
 					logger.info(`[${name}] Initialization successful.`);
-				} catch (err: unknown) {
+				} catch (_err: unknown) {
 					state = 'initialization_failed';
 					logger.error(`[${name}] Initialization failed.`);
 				}
@@ -240,8 +240,7 @@ const makeLifecycle = (logger: Logger, modGuides: readonly ModGuide<unknown>[]) 
 				: ({
 					ok: false,
 					failure: configResults
-					.map(([name, cfgRes]) => (!cfgRes.ok ? cfgRes.failure.map((f) => `[${name}] ${f}`) : ([] as const)))
-					.flat(),
+					.flatMap(([name, cfgRes]) => (!cfgRes.ok ? cfgRes.failure.map((f) => `[${name}] ${f}`) : ([] as const))),
 				} as const);
 			changePhase(result.ok ? 'configured' : 'configuration_failed');
 			return result;

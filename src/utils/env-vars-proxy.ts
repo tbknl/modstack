@@ -36,7 +36,7 @@ export const makeEnvProxy = (envVars: EnvVars, options?: { onLockedAccess?: ({ k
 			const strProp = String(prop);
 			checkLock(strProp);
 			const value = target[strProp];
-			const present = target.hasOwnProperty(prop);
+			const present = Object.hasOwn(target, prop);
 			envAccessLog.push({
 				type: 'read',
 				key: strProp,
@@ -47,7 +47,7 @@ export const makeEnvProxy = (envVars: EnvVars, options?: { onLockedAccess?: ({ k
 		has: (target, prop) => {
 			const strProp = String(prop);
 			checkLock(strProp);
-			const present = target.hasOwnProperty(strProp);
+			const present = Object.hasOwn(target, strProp);
 			envAccessLog.push({
 				type: 'check',
 				key: strProp,
