@@ -464,3 +464,13 @@ When initialization or finalization of app-module fail, it may be that there are
 
 App-modules implement the interfaces of `modstack` implicitly. Through typescript's structural typing they can be used safely with ModStack. But they may be used without modstack as well. Or they can be generically re-usable. For all these reasons, app-module implementations **must not import from modstack** or have any other (in)direct dependency on `modstack`.
 
+---
+
+## Authors
+
+Dave van Soest <https://github.com/tbknl>
+
+## LICENSE
+
+Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+
