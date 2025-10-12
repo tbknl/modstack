@@ -30,7 +30,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "vitest run"
+    "test": "pnpm run test:unit run",
+    "test:unit": "vitest"
   },
   "license": "MIT",
   "engines": {
