@@ -1,15 +1,15 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "dist",
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
-  },
-  "files": [
-    "src/modstack.ts",
-    "src/app-modules/stop-signal-handler.ts",
-    "src/app-modules/control-server.ts",
-    "src/utils/app-module-compatibility.ts",
-    "src/utils/env-vars-proxy.ts"
-  ]
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"outDir": "dist",
+		"noUnusedLocals": true,
+		"noUnusedParameters": true
+	},
+	"files": [
+		"src/modstack.ts",
+		"src/app-modules/stop-signal-handler.ts",
+		"src/app-modules/control-server.ts",
+		"src/utils/app-module-compatibility.ts",
+		"src/utils/env-vars-proxy.ts"
+	]
 }

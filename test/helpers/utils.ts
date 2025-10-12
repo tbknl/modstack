@@ -1,4 +1,4 @@
-const promiseNotRejected: unique symbol = Symbol('PromiseNotRejected');
+const promiseNotRejected: unique symbol = Symbol("PromiseNotRejected");
 export const ensurePromiseReject = <T>(x: T) =>
 	(async () => x)()
 		.then(() => {
@@ -12,12 +12,11 @@ export const ensurePromiseReject = <T>(x: T) =>
 			}
 		});
 
-const nothingThrown: unique symbol = Symbol('NothingThrown');
+const nothingThrown: unique symbol = Symbol("NothingThrown");
 export const ensureThrow = (fn: () => unknown) => {
 	try {
 		fn();
-	}
-	catch (e: unknown) {
+	} catch (e: unknown) {
 		return e;
 	}
 
