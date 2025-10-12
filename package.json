@@ -1,0 +1,48 @@
+{
+	"name": "modstack",
+	"version": "1.0.0",
+	"description": "Register application modules and guide them through the runtime lifecycle.",
+	"author": "Dave van Soest",
+	"type": "module",
+	"main": "dist/modstack.js",
+	"types": "dist/modstack.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/modstack.d.ts",
+			"default": "./dist/modstack.js"
+		},
+		"./app-modules/stop-signal-handler": {
+			"types": "./dist/app-modules/stop-signal-handler.d.ts",
+			"default": "./dist/app-modules/stop-signal-handler.js"
+		},
+		"./app-modules/control-server": {
+			"types": "./dist/app-modules/control-server.d.ts",
+			"default": "./dist/app-modules/control-server.js"
+		},
+		"./utils/app-module-compatibility": {
+			"types": "./dist/utils/app-module-compatibility.d.ts",
+			"default": "./dist/utils/app-module-compatibility.js"
+		},
+		"./utils/env-vars-proxy": {
+			"types": "./dist/utils/env-vars-proxy.d.ts",
+			"default": "./dist/utils/env-vars-proxy.js"
+		}
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"test": "pnpm run test:unit run",
+		"test:unit": "vitest"
+	},
+	"license": "MIT",
+	"engines": {
+		"node": ">=16"
+	},
+	"files": [
+		"dist/"
+	],
+	"devDependencies": {
+		"@types/node": "22.14.0",
+		"typescript": "5.9.3",
+		"vitest": "3.2.4"
+	}
+}
