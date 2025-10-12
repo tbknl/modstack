@@ -4,6 +4,7 @@ interface Logger {
 }
 
 export const makeStopSignalHandler = ({ logger }: { logger?: Logger }) => ({
+	configure: () => ({ ok: true, value: null } as const),
 	initialize: async (
 		_cfg: null,
 		{ lifecycle }: {
