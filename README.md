@@ -390,6 +390,7 @@ The built-in control-server app-module takes the lifecycle as a dependency. It s
 * `GET /liveness` always returns status code `200`, indicating that the application is alive.
 * `GET /readiness` returns status code `200` whenever the lifecycle phase is "ready" and otherwise returns status code `503`.
 * `GET /status` returns all information returned by `lifecycle.status()` in JSON format. An optional `?field=<field.name.separated.by.dots>` query parameter can be provided to return only a specific field of the JSON object.
+* `GET /info` returns all information provided with the optional `info` parameter when creating the control-server in JSON format. An optional `?field=<field.name.separated.by.dots>` query parameter can be provided to return only a specific field of the JSON object.
 * `POST /stop` triggers the lifecycle to stop, but only if the control-server is configured to allow that.
 
 The signal handler is typically one of the first app-modules on the stack, in order to report the liveness to the application controller even while initializating the application. To remain available throughout the finalization phase, the control-server postpones its finalization until all stacked app-modules are finalized.
@@ -399,8 +400,9 @@ Usage example
 import { modstack } from 'modstack';
 import { makeControlServer } from 'modstack/app-modules/control-server';
 
-const lifecycle = modstack({ logger: console })
-    .add('control-server', makeControlServer({ defaultPort: 3333, allowStop: true, logger }), { lifecycle: 'lifecycle' })
+const logger = console;
+const lifecycle = modstack({ logger })
+    .add('control-server', makeControlServer({ defaultPort: 3333, allowStop: true, info: { version: '1.0' }, logger }), { lifecycle: 'lifecycle' })
     // Other app-modules go here...
     .complete();
 ```

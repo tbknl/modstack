@@ -22,12 +22,14 @@ export const makeControlServer = ({
 	hostConfigKey = 'CONTROL_SERVER_HOST',
 	allowStop = false,
 	logger,
+	info,
 }: {
 	defaultPort: number;
 	portConfigKey?: string;
 	hostConfigKey?: string;
 	allowStop?: boolean;
 	logger?: Logger;
+	info?: Record<string, unknown>;
 }) => ({
 	configure: (envVars: Record<string, string | undefined>) => {
 		const rawPort = Number.parseInt(envVars[portConfigKey] ?? `${defaultPort}`);
@@ -60,6 +62,13 @@ export const makeControlServer = ({
 					const field = url.searchParams.get('field');
 					const statusData = field ? getObjectPath(status, field) : status;
 					return { status: 200, headers: { 'Content-Type': 'application/json' }, content: JSON.stringify(statusData ?? null) };
+				},
+			})),
+			'/info': new Map(Object.entries({
+				'GET': (url: URL) => {
+					const field = url.searchParams.get('field');
+					const infoData = field ? getObjectPath(info ?? {}, field) : info;
+					return { status: 200, headers: { 'Content-Type': 'application/json' }, content: JSON.stringify(infoData ?? null) };
 				},
 			})),
 			'/stop': new Map(Object.entries({
