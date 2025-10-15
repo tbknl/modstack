@@ -71,6 +71,7 @@ The only mandatory function of an app-module is the asynchronous `initialize`. I
 Example app-module with no dependencies:
 ```typescript
 const myAppModule = {
+    configure: () => ({ ok: true, value: null } as const),
     initialize: async (config: null) => ({
         instance: { dummy() { console.log('Dummy called'); } }
     })
@@ -80,6 +81,7 @@ const myAppModule = {
 Example app-module with a single named dependency:
 ```typescript
 const dependentAppModule = {
+    configure: () => ({ ok: true, value: null } as const),
     initialize: async (config: null, dependencies: { other: { doSomething: () => void } }) => ({
         instance: {
             dummy() {
@@ -100,6 +102,7 @@ interface Database {
 }
 
 const makeMyAppModule = ({ logger }: { logger: { error: (msg: string) => void } }) => ({
+    configure: () => ({ ok: true, value: null } as const),
     initialize: async (config: null, { db }: { db: Database }) => {
         return {
             instance: {
@@ -150,6 +153,7 @@ Besides the instance, the initialization can optionally return an asynchronous `
 Example:
 ```typescript
 const myFinalizingAppModule = {
+    configure: () => ({ ok: true, value: null } as const),
     initialize: async (config: null) => {
         const dbConnection = await db.connect('localhost', 1234).catch((err) => {
             logger.error(`Database connection error: ${err}`);
@@ -176,6 +180,7 @@ Optionally, the initialization can return return a synchronous `status` function
 Example
 ```typescript
 const myStatusExposingAppModule = {
+    configure: () => ({ ok: true, value: null } as const),
     initialize: async (config: null) => {
         const counter = { value: 0 };
         const makeInstance = (counter: { value: number }) => ({
