@@ -63,7 +63,7 @@ App-modules can depend on other app-modules which are added earlier in the stack
 
 #### Initialize
 
-The only mandatory function of an app-module is the asynchronous `initialize`. It takes the resolved configuration and optionally dependencies as parameters. It should return a promise that resolves into an object with at least the instance. On failure, the `initialize` function should throw an exception, which will be caught and handled by ModStack.
+The central function of an app-module is the asynchronous `initialize`. It takes the resolved configuration and optionally dependencies as parameters. It should return a promise that resolves into an object with at least the instance. On failure, the `initialize` function should throw an exception, which will be caught and handled by ModStack.
 
 > [!NOTE]  
 > When the app-module requires no configuration, then the type of `initialize`'s first ("config") parameter must be `null`.
